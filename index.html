@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>파킹마스터 실시간 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&display=swap');
+        body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; }
+        
+        .table-container { 
+            max-height: calc(100vh - 200px); 
+            overflow-y: auto; 
+            overflow-x: auto;
+        }
+        
+        @media (min-width: 768px) {
+            th { 
+                position: sticky; 
+                top: 0; 
+                background-color: #f8fafc; 
+                z-index: 10; 
+                box-shadow: 0 1px 2px rgba(0,0,0,0.05); 
+                user-select: none; 
+            }
+        }
+
+        /* 📱 모바일 대응: 6줄 배열 최적화 */
+        @media (max-width: 767px) {
+            table, thead, tbody, th, td, tr { display: block; }
+            thead { display: none; } 
+            
+            tr { 
+                display: flex;
+                flex-wrap: wrap; 
+                margin-bottom: 1rem; 
+                border-radius: 1.25rem; 
+                /* 🎯 좌측 상단 순번 리본 배지가 들어갈 상단 여백(2.25rem) 추가 */
+                padding: 2.25rem 1.25rem 1.25rem 1.25rem;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+                border: 1px solid rgba(0,0,0,0.1);
+                cursor: pointer;
+                transition: all 0.2s ease;
+                position: relative;
+                background-clip: padding-box;
+            }
+            
+            tr:active { transform: scale(0.98); opacity: 0.9; }
+
+            td { 
+                display: flex; 
+                flex-direction: column; 
+                justify-content: center; 
+                padding: 0.5rem 0.25rem !important;
+                border: none !important;
+                text-align: left;
+                min-height: 4rem;
+            }
+            
+            td::before {
+                content: attr(data-label);
+                font-weight: 800;
+                font-size: 0.65rem;
+                color: #94a3b8;
+                margin-bottom: 0.2rem;
+                text-transform: uppercase;
+                letter-spacing: -0.02em;
+            }
+
+            /* 🎯 직관적인 항목들은 모바일에서 컬럼명(라벨) 숨김 처리 */
+            td[data-label="출차"]::before,
+            td[data-label="성명/연락처"]::before,
+            td[data-label="편명"]::before,
+            td[data-label="차량정보"]::before,
+            td[data-label="터미널/주차장"]::before {
+                display: none;
+            }
+
+            /* 🎯 6줄 배열 구조 설정 */
+            td[data-label="출차"] { width: 12%; align-items: flex-start; order: 1; border-bottom: 1px solid rgba(0,0,0,0.05) !important; padding-bottom: 0.75rem !important; }
+            td[data-label="성명/연락처"] { width: 48%; align-items: flex-start; order: 2; border-bottom: 1px solid rgba(0,0,0,0.05) !important; padding-bottom: 0.75rem !important; }
+            td[data-label="편명"] { width: 40%; align-items: flex-end; order: 3; border-bottom: 1px solid rgba(0,0,0,0.05) !important; padding-bottom: 0.75rem !important; }
+            
+            td[data-label="차량정보"] { width: 60%; align-items: flex-start; padding-top: 0.75rem !important; order: 4; }
+            td[data-label="터미널/주차장"] { width: 40%; align-items: flex-end; padding-top: 0.75rem !important; order: 5; }
+            
+            td[data-label="예상도착"] { width: 40%; align-items: flex-start; order: 6; }
+            td[data-label="비고"] { width: 60%; align-items: flex-end; text-align: right; order: 7; }
+
+            .mobile-detail { display: none !important; opacity: 0; }
+            tr.is-expanded .mobile-detail { display: flex !important; opacity: 1; animation: fadeIn 0.3s ease; }
+
+            td[data-label="출발도시"] { width: 50%; align-items: flex-start; border-top: 1px dashed rgba(0,0,0,0.05) !important; padding-top: 0.75rem !important; order: 8; }
+            td[data-label="여행지"] { width: 50%; align-items: flex-end; border-top: 1px dashed rgba(0,0,0,0.05) !important; padding-top: 0.75rem !important; order: 9; }
+
+            td[data-label="실시간상태"] { width: 50%; align-items: flex-start; order: 10; }
+            td[data-label="입국장"] { width: 50%; align-items: flex-end; order: 11; }
+
+            td[data-label="예약시간"] { width: 100%; align-items: flex-start; border-top: 1px dashed rgba(0,0,0,0.05) !important; padding-top: 0.75rem !important; order: 12; }
+
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(-5px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+
+            tr::after {
+                content: '\f078';
+                font-family: 'Font Awesome 6 Free';
+                font-weight: 900;
+                display: block; width: 100%; text-align: center;
+                color: #cbd5e1; font-size: 0.75rem; margin-top: 0.5rem; padding-top: 0.5rem;
+                order: 99; 
+            }
+            tr.is-expanded::after { content: '\f077'; color: #3b82f6; }
+            
+            .table-container { max-height: none; overflow: visible; }
+        }
+        
+        .table-container::-webkit-scrollbar { width: 8px; height: 8px; }
+        .table-container::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="text-slate-800 p-3 sm:p-6">
+    <div class="max-w-screen-2xl mx-auto">
+        
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex flex-col items-center md:items-start text-center md:text-left">
+                <h1 class="text-xl sm:text-2xl font-bold text-blue-700 flex items-center gap-2">
+                    <i class="fas fa-plane-arrival"></i> 실시간 운항 정보 대시보드
+                </h1>
+                <div class="flex flex-col sm:flex-row items-center gap-2 mt-1">
+                    <span class="text-[10px] sm:text-xs text-slate-500 font-semibold">인천공항 공공데이터 공식 연동</span>
+                    <span id="lastUpdateBadge" class="text-[10px] sm:text-xs text-blue-600 font-bold bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-md hidden">
+                        <i class="fas fa-clock mr-1"></i>항공편 연동: <span id="lastUpdateTimeText">-</span>
+                    </span>
+                    <span id="syncBadge" class="text-[10px] sm:text-xs text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md">
+                        <i class="fas fa-wifi mr-1"></i>실시간 동기화 ON
+                    </span>
+                </div>
+            </div>
+            
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+                <div class="bg-slate-100 p-1.5 rounded-lg border border-slate-200 flex items-center justify-center">
+                    <i class="far fa-calendar-alt text-slate-400 ml-2 mr-1"></i>
+                    <input type="date" id="searchDate" class="bg-transparent border-none px-2 py-1 focus:outline-none font-bold text-slate-700 cursor-pointer">
+                </div>
+                <button onclick="fetchData()" id="fetchBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-bold shadow-md shadow-blue-200 transition-all flex justify-center items-center gap-2 active:scale-95">
+                    <i class="fas fa-sync-alt" id="btnIcon"></i> 데이터 통합 조회
+                </button>
+            </div>
+        </div>
+
+        <div id="loadingArea" class="hidden mb-6 bg-blue-50 border border-blue-200 text-blue-800 px-5 py-4 rounded-xl flex items-center gap-4 font-semibold shadow-sm">
+            <i class="fas fa-spinner fa-spin text-2xl"></i>
+            <div class="text-sm">
+                <p>데이터를 불러오는 중입니다...</p>
+            </div>
+        </div>
+
+        <div class="bg-white md:rounded-2xl md:shadow-sm md:border md:border-slate-200 table-container relative">
+            <table class="w-full text-sm text-left">
+                <thead class="text-xs text-slate-500 uppercase bg-slate-50 whitespace-nowrap">
+                    <tr>
+                        <th class="px-3 py-4 text-center">출차</th>
+                        <th class="px-5 py-4 cursor-pointer hover:bg-slate-200 transition-colors" onclick="sortTable('성명')">성명/연락처 <i id="sort-성명" class="fas fa-sort text-slate-300 ml-1 sort-icon"></i></th>
+                        <th class="px-5 py-4 text-center cursor-pointer hover:bg-slate-200 transition-colors" onclick="sortTable('편명')">편명 <i id="sort-편명" class="fas fa-sort text-slate-300 ml-1 sort-icon"></i></th>
+                        <th class="px-5 py-4 cursor-pointer hover:bg-slate-200 transition-colors" onclick="sortTable('비고')">비고 <i id="sort-비고" class="fas fa-sort text-slate-300 ml-1 sort-icon"></i></th>
+                        <th class="px-5 py-4 cursor-pointer hover:bg-slate-200 transition-colors" onclick="sortTable('차량정보')">차량정보 <i id="sort-차량정보" class="fas fa-sort text-slate-300 ml-1 sort-icon"></i></th>
+                        <th class="px-5 py-4 text-center bg-amber-50/50 text-amber-700 border-x border-amber-100/50 cursor-pointer hover:bg-amber-100 transition-colors" onclick="sortTable('주차장')">터미널/주차장 <i id="sort-주차장" class="fas fa-sort text-amber-300 ml-1 sort-icon"></i></th>
+                        <th class="px-5 py-4 text-center cursor-pointer hover:bg-slate-200 transition-colors" onclick="sortTable('예상도착시간')">예상도착 <i id="sort-예상도착시간" class="fas fa-sort text-slate-300 ml-1 sort-icon"></i></th>
+                        <th class="px-5 py-4 text-center cursor-pointer hover:bg-slate-200 transition-colors" onclick="sortTable('출발공항')">출발도시 <i id="sort-출발공항" class="fas fa-sort text-slate-300 ml-1 sort-icon"></i></th>
+                        <th class="px-5 py-4 text-center cursor-pointer hover:bg-slate-200 transition-colors" onclick="sortTable('여행지')">여행지 <i id="sort-여행지" class="fas fa-sort text-slate-300 ml-1 sort-icon"></i></th>
+                        <th class="px-5 py-4 text-center cursor-pointer hover:bg-slate-200 transition-colors" onclick="sortTable('실시간상태')">실시간상태 <i id="sort-실시간상태" class="fas fa-sort text-slate-300 ml-1 sort-icon"></i></th>
+                        <th class="px-5 py-4 text-center cursor-pointer hover:bg-slate-200 transition-colors" onclick="sortTable('입국장')">입국장 <i id="sort-입국장" class="fas fa-sort text-slate-300 ml-1 sort-icon"></i></th>
+                        <th class="px-5 py-4 text-center cursor-pointer hover:bg-slate-200 transition-colors" onclick="sortTable('도착시간')">예약시간 <i id="sort-도착시간" class="fas fa-sort text-slate-300 ml-1 sort-icon"></i></th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody" class="divide-y divide-slate-100">
+                    <tr>
+                        <td colspan="12" class="px-5 py-20 text-center text-slate-400">
+                            날짜를 선택하고 <b>'데이터 통합 조회'</b>를 눌러주세요.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // 🎯 [중요] 아래 API_BASE 끝에 /api 가 빠져있어서 에러가 발생했습니다. 완벽하게 수정되었습니다!
+        const API_BASE = "https://parking-server-09v9.onrender.com/api"; 
+        
+        let globalData = []; 
+        let currentSortCol = ''; 
+        let sortAscending = true; 
+        let ws; 
+
+        function getTodayKST() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function initLastUpdateUI() {
+            const savedTimeStr = localStorage.getItem('parkingLastUpdateStr');
+            if (savedTimeStr) {
+                document.getElementById('lastUpdateBadge').classList.remove('hidden');
+                document.getElementById('lastUpdateTimeText').innerText = savedTimeStr;
+            }
+        }
+
+        function connectWebSocket() {
+            const wsProtocol = API_BASE.startsWith('https') ? 'wss://' : 'ws://';
+            const wsUrl = API_BASE.replace(/^https?:\/\//, wsProtocol).replace('/api', '/ws');
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                document.getElementById('syncBadge').className = "text-[10px] sm:text-xs text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md";
+                document.getElementById('syncBadge').innerHTML = '<i class="fas fa-wifi mr-1"></i>실시간 동기화 ON';
+            };
+            
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                const currentDate = document.getElementById('searchDate').value;
+                
+                if (msg.date === currentDate) {
+                    if (msg.type === 'update_exit') {
+                        const item = globalData.find(d => d.성명 === msg.name);
+                        if (item) {
+                            item.출차완료 = msg.is_out;
+                            sortTable(currentSortCol || '예상도착시간', true); 
+                        }
+                    } else if (msg.type === 'update_flight') {
+                        const itemIndex = globalData.findIndex(d => d.성명 === msg.name);
+                        if (itemIndex > -1 && msg.updated_item) {
+                            globalData[itemIndex] = msg.updated_item;
+                            sortTable(currentSortCol || '예상도착시간', true); 
+                        } else {
+                            loadSavedData(currentDate); 
+                        }
+                    }
+                }
+            };
+            
+            ws.onclose = () => {
+                document.getElementById('syncBadge').className = "text-[10px] sm:text-xs text-rose-600 font-bold bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-md";
+                document.getElementById('syncBadge').innerHTML = '<i class="fas fa-unlink mr-1"></i>동기화 끊김 (재연결 중...)';
+                setTimeout(connectWebSocket, 3000);
+            };
+        }
+
+        window.onload = () => {
+            const today = getTodayKST();
+            document.getElementById('searchDate').value = today;
+            initLastUpdateUI();
+            initLoad(today);
+            connectWebSocket(); 
+        };
+
+        async function initLoad(date) {
+            try {
+                const result = await fetchSafe(`${API_BASE}/get-saved-data?date=${date}`, { headers: { "ngrok-skip-browser-warning": "true", "Cache-Control": "no-cache" } });
+                if (result && result.status === 'success' && result.data && result.data.length > 0) {
+                    globalData = result.data;
+                    sortTable('예상도착시간', true); 
+                    resetSortIcons(); 
+                } else {
+                    fetchData();
+                }
+            } catch (e) {
+                fetchData();
+            }
+        }
+
+        document.getElementById('searchDate').addEventListener('change', (e) => loadSavedData(e.target.value));
+
+        async function fetchSafe(url, options = {}) {
+            try {
+                const response = await fetch(url, options);
+                
+                // 만약 응답이 정상이 아니면 (404 등) 에러를 던집니다.
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const text = await response.text();
+                
+                if (text.includes('ngrok-free.app') || text.includes('Visit Site')) {
+                    throw new Error("NGROK_WARNING");
+                }
+                
+                return JSON.parse(text); 
+            } catch (error) {
+                if (error.message === "NGROK_WARNING") {
+                    alert(`🚨 ngrok 보안 경고창이 연결을 막고 있습니다!\n\n[해결 방법]\n1. 브라우저 새 창을 엽니다.\n2. ${API_BASE.replace('/api', '')} 로 접속하세요.\n3. 파란색 [Visit Site] 버튼을 클릭하세요.\n4. 다시 이 대시보드로 돌아와 조회 버튼을 누르세요!`);
+                } else {
+                    throw error; 
+                }
+                return null;
+            }
+        }
+
+        async function loadSavedData(date) {
+            try {
+                const result = await fetchSafe(`${API_BASE}/get-saved-data?date=${date}`, { headers: { "ngrok-skip-browser-warning": "true", "Cache-Control": "no-cache" } });
+                if (!result) return;
+
+                if (result.status === 'success' && result.data.length > 0) {
+                    globalData = result.data;
+                    sortTable('예상도착시간', true); 
+                    resetSortIcons(); 
+                } else renderEmpty();
+            } catch (e) { renderEmpty(); }
+        }
+
+        async function fetchData() {
+            const btn = document.getElementById('fetchBtn');
+            const icon = document.getElementById('btnIcon');
+            const loadingArea = document.getElementById('loadingArea');
+            const date = document.getElementById('searchDate').value;
+            const today = getTodayKST();
+
+            let skipFlight = false;
+
+            if (date !== today) {
+                skipFlight = true;
+            } else {
+                const lastUpdateMs = localStorage.getItem('parkingLastUpdateMs');
+                if (lastUpdateMs) {
+                    const nowMs = Date.now();
+                    const diffMs = nowMs - parseInt(lastUpdateMs, 10);
+                    const cooldownMs = 5 * 60 * 1000; 
+                    
+                    if (diffMs < cooldownMs) {
+                        skipFlight = true; 
+                        const remainMin = Math.ceil((cooldownMs - diffMs) / 60000);
+                        alert(`⏳ 공공데이터 API 쿨타임이 적용 중입니다 (${remainMin}분 남음).\n\n파킹마스터 예약 명단(엑셀)만 즉시 최신화되며, 항공편 상태는 기존 데이터로 유지됩니다.`);
+                    }
+                }
+            }
+
+            btn.disabled = true; icon.classList.add('fa-spin'); loadingArea.classList.remove('hidden');
+
+            try {
+                const result = await fetchSafe(`${API_BASE}/get-excel-data?date=${date}&skip_flight=${skipFlight}`, { headers: { "ngrok-skip-browser-warning": "true", "Cache-Control": "no-cache" } });
+                if (!result) return;
+
+                if (result.status === 'success') {
+                    globalData = result.data;
+                    sortTable(currentSortCol || '예상도착시간', true);
+                    
+                    if (!skipFlight) {
+                        const now = new Date();
+                        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                        localStorage.setItem('parkingLastUpdateMs', Date.now().toString());
+                        localStorage.setItem('parkingLastUpdateStr', timeStr);
+                        
+                        document.getElementById('lastUpdateBadge').classList.remove('hidden');
+                        document.getElementById('lastUpdateTimeText').innerText = timeStr;
+                    }
+
+                    if (date !== today) {
+                        alert("ℹ️ 안내: 파킹마스터 예약 명단을 새로 불러왔습니다.\n(당일이 아니므로 항공편 실시간 상태는 매칭되지 않습니다.)");
+                    }
+                } else {
+                    alert("오류: " + result.message);
+                    renderEmpty();
+                }
+            } catch (e) { 
+                alert(`통신 오류가 발생했습니다!\n\n[상세 에러 내용]\n${e.message}\n\n[확인 사항]\nPC의 파이썬 서버가 꺼지지 않았는지 확인해주세요.`); 
+                renderEmpty();
+            } 
+            finally { btn.disabled = false; icon.classList.remove('fa-spin'); loadingArea.classList.add('hidden'); }
+        }
+
+        async function updateFlight(name, newFlight) {
+            const date = document.getElementById('searchDate').value;
+            if (!newFlight || newFlight.trim() === '') return;
+            try {
+                await fetchSafe(`${API_BASE}/update-flight`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', "ngrok-skip-browser-warning": "true" },
+                    body: JSON.stringify({ date: date, name: name, new_flight: newFlight.trim() })
+                });
+            } catch (e) { alert("수정 실패"); }
+        }
+
+        async function updateExitStatus(name, isChecked) {
+            const date = document.getElementById('searchDate').value;
+            
+            const item = globalData.find(d => d.성명 === name);
+            if (item) item.출차완료 = isChecked;
+            renderTable(globalData);
+
+            try {
+                await fetchSafe(`${API_BASE}/update-exit`, { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', "ngrok-skip-browser-warning": "true" },
+                    body: JSON.stringify({ date: date, name: name, is_out: isChecked })
+                });
+            } catch (e) { console.error("출차 정보 서버 저장 에러", e); }
+        }
+
+        function sortTable(column, keepOrder = false) {
+            if (!globalData || globalData.length === 0) return;
+            if (!keepOrder) {
+                if (currentSortCol === column) sortAscending = !sortAscending;
+                else { currentSortCol = column; sortAscending = true; }
+            } else if (!currentSortCol) {
+                currentSortCol = column;
+            }
+
+            globalData.sort((a, b) => {
+                const timeA = a['예상도착시간'] || '-';
+                const timeB = b['예상도착시간'] || '-';
+                
+                const isNoTimeA = (timeA === '-');
+                const isNoTimeB = (timeB === '-');
+                if (isNoTimeA && !isNoTimeB) return -1;
+                if (!isNoTimeA && isNoTimeB) return 1;
+                
+                let valA = String(a[column] || ''), valB = String(b[column] || '');
+                return sortAscending ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            });
+            renderTable(globalData);
+            updateSortIcons();
+        }
+
+        function updateSortIcons() {
+            resetSortIcons();
+            if (currentSortCol) {
+                const activeIcon = document.getElementById(`sort-${currentSortCol}`);
+                if (activeIcon) activeIcon.className = `fas fa-sort-${sortAscending ? 'up' : 'down'} text-blue-600 ml-1 sort-icon font-bold`;
+            }
+        }
+
+        function resetSortIcons() {
+            document.querySelectorAll('.sort-icon').forEach(icon => { icon.className = 'fas fa-sort text-slate-300 ml-1 sort-icon'; });
+        }
+
+        function toggleMobileRow(el) {
+            if (window.innerWidth < 768) {
+                el.classList.toggle('is-expanded');
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            // 🎯 data 배열의 현재 정렬된 순서대로 forEach가 실행됩니다.
+            data.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.onclick = function() { toggleMobileRow(this); };
+                
+                const isOut = item.출차완료 || false;
+                const terminalStr = item.도착터미널 || '-';
+                const statusStr = item.실시간상태 || '-';
+                const parkingStr = item.주차장 || '-';
+                const nameStr = item.성명 || '이름없음';
+                const flightStr = item.편명 || '';
+                const carStr = item.차량정보 || '-';
+                const estTimeStr = item.예상도착시간 || '-';
+                const remarkStr = item.비고 || '';
+                const departStr = item.출발공항 || '-';
+                const destStr = item.여행지 || '-';
+                const exitStr = item.입국장 || '-';
+                const bookTimeStr = item.도착시간 || '-';
+
+                let rowColorClass = "";
+                let terminalBadgeClass = "";
+
+                if (isOut) {
+                    rowColorClass = "bg-green-100 hover:bg-green-200 transition-colors border-green-200";
+                } else if (terminalStr === 'T1') {
+                    rowColorClass = "bg-yellow-100 md:bg-yellow-100 hover:bg-yellow-200 transition-colors";
+                    terminalBadgeClass = "bg-yellow-400 text-yellow-950 border-yellow-500";
+                } else if (terminalStr === 'T2') {
+                    rowColorClass = "bg-red-100 md:bg-red-100 hover:bg-red-200 transition-colors";
+                    terminalBadgeClass = "bg-red-400 text-white border-red-500";
+                } else {
+                    rowColorClass = "bg-white hover:bg-slate-50 transition-colors";
+                }
+
+                tr.className = rowColorClass;
+
+                let telMatch = nameStr.match(/\((.*?)\)/);
+                let telNum = telMatch ? telMatch[1].replace(/[^0-9]/g, '') : '';
+                let cleanName = nameStr.split('(')[0];
+
+                let nameHtml = `
+                    <div class="flex flex-col gap-0.5">
+                        <span class="text-slate-800 font-bold text-xl md:text-base">${cleanName}</span>
+                        ${telMatch ? `
+                        <a href="tel:${telNum}" onclick="event.stopPropagation()" class="text-sm md:text-[11px] text-slate-500 font-semibold hover:text-blue-600 underline md:no-underline md:hover:underline transition-colors">
+                            (${telMatch[1]})
+                        </a>` : ''}
+                    </div>
+                `;
+
+                let flightHtml = `
+                    <div class="flex items-center gap-1.5 bg-blue-600 px-3 py-1.5 rounded-lg shadow-md border border-blue-700" onclick="event.stopPropagation()">
+                        <input type="text" value="${flightStr}" onchange="updateFlight('${nameStr}', this.value)"
+                               class="w-20 text-center bg-transparent font-black text-white focus:outline-none uppercase text-base placeholder-blue-300">
+                        <i class="fas fa-edit text-blue-200 text-xs"></i>
+                    </div>
+                `;
+
+                let statusBadgeClass = "text-slate-500";
+                if (statusStr.includes("도착") || statusStr.includes("착륙")) statusBadgeClass = "text-emerald-700 font-bold bg-white/90 px-2 py-1 rounded-md border border-emerald-300";
+                else if (statusStr.includes("지연")) statusBadgeClass = "text-rose-600 font-bold bg-white/90 px-2 py-1 rounded-md border border-rose-300";
+                else if (statusStr !== "정보없음" && statusStr !== "확인불가" && statusStr !== "-") statusBadgeClass = "text-blue-800 font-bold";
+
+                let parkingBadgeClass = parkingStr !== "-" ? "bg-amber-200 text-amber-950" : "text-slate-400";
+                
+                let combinedParkingHtml = `
+                    <div class="flex items-center gap-1">
+                        <span class="w-12 py-1 rounded bg-white/80 border border-slate-300 text-[11px] font-black text-slate-700 text-center shadow-sm">${terminalStr}</span>
+                        <span class="w-12 py-1 rounded font-black text-[11px] text-center shadow-sm border border-amber-400 ${parkingBadgeClass}">${parkingStr}</span>
+                    </div>
+                `;
+
+                tr.innerHTML = `
+                    <td class="px-2 py-3 text-center" data-label="출차">
+                        <!-- 🎯 자바스크립트 인덱스를 사용한 모바일 전용 좌측 상단 순번 리본 -->
+                        <div class="md:hidden absolute top-0 left-0 bg-slate-700 text-white px-3 py-1 text-[11px] font-black rounded-tl-[1.25rem] rounded-br-xl shadow-sm z-10 tracking-wider">
+                            NO.${index + 1}
+                        </div>
+                        <input type="checkbox" ${isOut ? 'checked' : ''} 
+                               onchange="updateExitStatus('${nameStr}', this.checked)"
+                               onclick="event.stopPropagation()"
+                               class="w-6 h-6 rounded border-slate-300 text-green-600 focus:ring-green-500 accent-green-600 cursor-pointer">
+                    </td>
+                    <td class="px-5 py-3" data-label="성명/연락처">${nameHtml}</td>
+                    <td class="px-5 py-3 text-center" data-label="편명">${flightHtml}</td>
+                    
+                    <td class="px-5 py-3 text-sm md:text-xs text-slate-700 font-bold max-w-[200px] md:whitespace-normal" data-label="비고" title="${remarkStr}">${remarkStr}</td>
+                    
+                    <td class="px-5 py-3 text-slate-600 font-medium" data-label="차량정보">${carStr}</td>
+                    <td class="px-5 py-3 text-center" data-label="터미널/주차장">${combinedParkingHtml}</td>
+                    
+                    <td class="px-5 py-3 text-center font-bold text-rose-600 text-xl md:text-base" data-label="예상도착">${estTimeStr}</td>
+                    <td class="px-5 py-3 text-center font-medium mobile-detail" data-label="출발도시">${departStr}</td>
+                    
+                    <td class="px-5 py-3 text-center font-bold text-blue-900 mobile-detail" data-label="여행지">${destStr}</td>
+                    <td class="px-5 py-3 text-center mobile-detail" data-label="실시간상태"><span class="${statusBadgeClass}">${statusStr}</span></td>
+                    
+                    <td class="px-5 py-3 text-center font-black text-slate-900 mobile-detail" data-label="입국장">${exitStr}</td>
+                    <td class="px-5 py-3 text-center text-slate-500 font-bold mobile-detail" data-label="예약시간">${bookTimeStr}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderEmpty() {
+            globalData = []; 
+            document.getElementById('tableBody').innerHTML = `<tr><td colspan="12" class="px-5 py-20 text-center text-slate-400">데이터가 없습니다.</td></tr>`;
+        }
+    </script>
+</body>
+</html>
