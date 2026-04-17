@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>파킹마스터 실시간 대시보드</title>
+    <title>파킹페이퍼 실시간 대시보드</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -37,7 +37,6 @@
                 flex-wrap: wrap; 
                 margin-bottom: 1rem; 
                 border-radius: 1.25rem; 
-                /* 🎯 좌측 상단 순번 리본 배지가 들어갈 상단 여백(2.25rem) 추가 */
                 padding: 2.25rem 1.25rem 1.25rem 1.25rem;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.08);
                 border: 1px solid rgba(0,0,0,0.1);
@@ -69,7 +68,6 @@
                 letter-spacing: -0.02em;
             }
 
-            /* 🎯 직관적인 항목들은 모바일에서 컬럼명(라벨) 숨김 처리 */
             td[data-label="출차"]::before,
             td[data-label="성명/연락처"]::before,
             td[data-label="편명"]::before,
@@ -78,7 +76,6 @@
                 display: none;
             }
 
-            /* 🎯 6줄 배열 구조 설정 */
             td[data-label="출차"] { width: 12%; align-items: flex-start; order: 1; border-bottom: 1px solid rgba(0,0,0,0.05) !important; padding-bottom: 0.75rem !important; }
             td[data-label="성명/연락처"] { width: 48%; align-items: flex-start; order: 2; border-bottom: 1px solid rgba(0,0,0,0.05) !important; padding-bottom: 0.75rem !important; }
             td[data-label="편명"] { width: 40%; align-items: flex-end; order: 3; border-bottom: 1px solid rgba(0,0,0,0.05) !important; padding-bottom: 0.75rem !important; }
@@ -132,9 +129,9 @@
                     <i class="fas fa-plane-arrival"></i> 실시간 운항 정보 대시보드
                 </h1>
                 <div class="flex flex-col sm:flex-row items-center gap-2 mt-1">
-                    <span class="text-[10px] sm:text-xs text-slate-500 font-semibold">인천공항 공공데이터 공식 연동</span>
+                    <span class="text-[10px] sm:text-xs text-slate-500 font-semibold">공공데이터 실시간 연동 (5분 자동갱신)</span>
                     <span id="lastUpdateBadge" class="text-[10px] sm:text-xs text-blue-600 font-bold bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-md hidden">
-                        <i class="fas fa-clock mr-1"></i>항공편 연동: <span id="lastUpdateTimeText">-</span>
+                        <i class="fas fa-clock mr-1"></i>최근 항공편 갱신: <span id="lastUpdateTimeText">-</span>
                     </span>
                     <span id="syncBadge" class="text-[10px] sm:text-xs text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md">
                         <i class="fas fa-wifi mr-1"></i>실시간 동기화 ON
@@ -148,7 +145,7 @@
                     <input type="date" id="searchDate" class="bg-transparent border-none px-2 py-1 focus:outline-none font-bold text-slate-700 cursor-pointer">
                 </div>
                 <button onclick="fetchData()" id="fetchBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-bold shadow-md shadow-blue-200 transition-all flex justify-center items-center gap-2 active:scale-95">
-                    <i class="fas fa-sync-alt" id="btnIcon"></i> 데이터 통합 조회
+                    <i class="fas fa-sync-alt" id="btnIcon"></i> 예약 리스트 새로고침
                 </button>
             </div>
         </div>
@@ -156,7 +153,7 @@
         <div id="loadingArea" class="hidden mb-6 bg-blue-50 border border-blue-200 text-blue-800 px-5 py-4 rounded-xl flex items-center gap-4 font-semibold shadow-sm">
             <i class="fas fa-spinner fa-spin text-2xl"></i>
             <div class="text-sm">
-                <p>데이터를 불러오는 중입니다...</p>
+                <p>엑셀 예약 명단을 서버에서 동기화 중입니다...</p>
             </div>
         </div>
 
@@ -181,7 +178,7 @@
                 <tbody id="tableBody" class="divide-y divide-slate-100">
                     <tr>
                         <td colspan="12" class="px-5 py-20 text-center text-slate-400">
-                            날짜를 선택하고 <b>'데이터 통합 조회'</b>를 눌러주세요.
+                            데이터를 불러오는 중입니다...
                         </td>
                     </tr>
                 </tbody>
@@ -190,7 +187,7 @@
     </div>
 
     <script>
-        // 🎯 [중요] 아래 API_BASE 끝에 /api 가 빠져있어서 에러가 발생했습니다. 완벽하게 수정되었습니다!
+        // 🎯 사무실 PC ngrok 절대주소
         const API_BASE = "https://wreath-popper-dedicator.ngrok-free.dev/api"; 
         
         let globalData = []; 
@@ -212,6 +209,16 @@
                 document.getElementById('lastUpdateBadge').classList.remove('hidden');
                 document.getElementById('lastUpdateTimeText').innerText = savedTimeStr;
             }
+        }
+
+        function updateTimeBadge() {
+            const now = new Date();
+            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            localStorage.setItem('parkingLastUpdateMs', Date.now().toString());
+            localStorage.setItem('parkingLastUpdateStr', timeStr);
+            
+            document.getElementById('lastUpdateBadge').classList.remove('hidden');
+            document.getElementById('lastUpdateTimeText').innerText = timeStr;
         }
 
         function connectWebSocket() {
@@ -244,6 +251,11 @@
                         } else {
                             loadSavedData(currentDate); 
                         }
+                    } else if (msg.type === 'background_update') {
+                        // 🎯 서버가 5분마다 보내는 최신 데이터 실시간 적용
+                        globalData = msg.data;
+                        sortTable(currentSortCol || '예상도착시간', true);
+                        updateTimeBadge();
                     }
                 }
             };
@@ -283,18 +295,12 @@
         async function fetchSafe(url, options = {}) {
             try {
                 const response = await fetch(url, options);
-                
-                // 만약 응답이 정상이 아니면 (404 등) 에러를 던집니다.
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 
                 const text = await response.text();
-                
                 if (text.includes('ngrok-free.app') || text.includes('Visit Site')) {
                     throw new Error("NGROK_WARNING");
                 }
-                
                 return JSON.parse(text); 
             } catch (error) {
                 if (error.message === "NGROK_WARNING") {
@@ -335,12 +341,12 @@
                 if (lastUpdateMs) {
                     const nowMs = Date.now();
                     const diffMs = nowMs - parseInt(lastUpdateMs, 10);
-                    const cooldownMs = 5 * 60 * 1000; 
+                    const cooldownMs = 5 * 60 * 1000; // 🎯 5분 쿨타임
                     
                     if (diffMs < cooldownMs) {
                         skipFlight = true; 
                         const remainMin = Math.ceil((cooldownMs - diffMs) / 60000);
-                        alert(`⏳ 공공데이터 API 쿨타임이 적용 중입니다 (${remainMin}분 남음).\n\n파킹마스터 예약 명단(엑셀)만 즉시 최신화되며, 항공편 상태는 기존 데이터로 유지됩니다.`);
+                        alert(`⏳ 공공데이터 API 보호 쿨타임 (${remainMin}분 남음).\n\n파킹마스터 예약 명단(엑셀)만 최신화하며, 항공편 상태는 기존 데이터를 유지합니다.\n(서버가 5분마다 알아서 항공편을 갱신합니다!)`);
                     }
                 }
             }
@@ -356,13 +362,7 @@
                     sortTable(currentSortCol || '예상도착시간', true);
                     
                     if (!skipFlight) {
-                        const now = new Date();
-                        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                        localStorage.setItem('parkingLastUpdateMs', Date.now().toString());
-                        localStorage.setItem('parkingLastUpdateStr', timeStr);
-                        
-                        document.getElementById('lastUpdateBadge').classList.remove('hidden');
-                        document.getElementById('lastUpdateTimeText').innerText = timeStr;
+                        updateTimeBadge();
                     }
 
                     if (date !== today) {
@@ -373,7 +373,7 @@
                     renderEmpty();
                 }
             } catch (e) { 
-                alert(`통신 오류가 발생했습니다!\n\n[상세 에러 내용]\n${e.message}\n\n[확인 사항]\nPC의 파이썬 서버가 꺼지지 않았는지 확인해주세요.`); 
+                alert(`통신 오류가 발생했습니다!\n\n사무실 PC의 파이썬 서버(cmd)가 꺼지지 않았는지 확인해주세요.`); 
                 renderEmpty();
             } 
             finally { btn.disabled = false; icon.classList.remove('fa-spin'); loadingArea.classList.add('hidden'); }
@@ -454,7 +454,6 @@
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
 
-            // 🎯 data 배열의 현재 정렬된 순서대로 forEach가 실행됩니다.
             data.forEach((item, index) => {
                 const tr = document.createElement('tr');
                 tr.onclick = function() { toggleMobileRow(this); };
@@ -528,7 +527,6 @@
 
                 tr.innerHTML = `
                     <td class="px-2 py-3 text-center" data-label="출차">
-                        <!-- 🎯 자바스크립트 인덱스를 사용한 모바일 전용 좌측 상단 순번 리본 -->
                         <div class="md:hidden absolute top-0 left-0 bg-slate-700 text-white px-3 py-1 text-[11px] font-black rounded-tl-[1.25rem] rounded-br-xl shadow-sm z-10 tracking-wider">
                             NO.${index + 1}
                         </div>
@@ -560,7 +558,7 @@
 
         function renderEmpty() {
             globalData = []; 
-            document.getElementById('tableBody').innerHTML = `<tr><td colspan="12" class="px-5 py-20 text-center text-slate-400">데이터가 없습니다.</td></tr>`;
+            document.getElementById('tableBody').innerHTML = `<tr><td colspan="12" class="px-5 py-20 text-center text-slate-400">날짜를 선택하고 <b>'예약 리스트 새로고침'</b> 버튼을 눌러주세요.</td></tr>`;
         }
     </script>
 </body>
