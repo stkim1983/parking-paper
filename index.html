@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>파킹페이퍼 실시간 대시보드</title>
+    <title>파킹마스터 실시간 대시보드</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -211,14 +211,14 @@
             }
         }
 
-        function updateTimeBadge() {
-            const now = new Date();
-            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-            localStorage.setItem('parkingLastUpdateMs', Date.now().toString());
-            localStorage.setItem('parkingLastUpdateStr', timeStr);
+        // 🎯 서버에서 보낸 정확한 시간을 인자로 받아서 뱃지를 업데이트합니다.
+        function updateTimeBadge(serverTimeStr) {
+            if (!serverTimeStr) return;
+            
+            localStorage.setItem('parkingLastUpdateStr', serverTimeStr);
             
             document.getElementById('lastUpdateBadge').classList.remove('hidden');
-            document.getElementById('lastUpdateTimeText').innerText = timeStr;
+            document.getElementById('lastUpdateTimeText').innerText = serverTimeStr;
         }
 
         function connectWebSocket() {
@@ -252,10 +252,12 @@
                             loadSavedData(currentDate); 
                         }
                     } else if (msg.type === 'background_update') {
-                        // 🎯 서버가 5분마다 보내는 최신 데이터 실시간 적용
+                        // 🎯 서버가 5분마다 보내는 최신 데이터와 서버 갱신 시간 적용
                         globalData = msg.data;
                         sortTable(currentSortCol || '예상도착시간', true);
-                        updateTimeBadge();
+                        if (msg.update_time) {
+                            updateTimeBadge(msg.update_time);
+                        }
                     }
                 }
             };
@@ -280,6 +282,10 @@
                 const result = await fetchSafe(`${API_BASE}/get-saved-data?date=${date}`, { headers: { "ngrok-skip-browser-warning": "true", "Cache-Control": "no-cache" } });
                 if (result && result.status === 'success' && result.data && result.data.length > 0) {
                     globalData = result.data;
+                    
+                    // 🎯 페이지 최초 접속 시에도 서버가 알려준 최신 저장 파일 시간을 반영
+                    if (result.update_time) updateTimeBadge(result.update_time);
+                    
                     sortTable('예상도착시간', true); 
                     resetSortIcons(); 
                 } else {
@@ -319,6 +325,7 @@
 
                 if (result.status === 'success' && result.data.length > 0) {
                     globalData = result.data;
+                    if (result.update_time) updateTimeBadge(result.update_time);
                     sortTable('예상도착시간', true); 
                     resetSortIcons(); 
                 } else renderEmpty();
@@ -362,7 +369,9 @@
                     sortTable(currentSortCol || '예상도착시간', true);
                     
                     if (!skipFlight) {
-                        updateTimeBadge();
+                        if (result.update_time) updateTimeBadge(result.update_time);
+                        // 공공데이터를 새로 호출한 경우에만 쿨타임 갱신
+                        localStorage.setItem('parkingLastUpdateMs', Date.now().toString()); 
                     }
 
                     if (date !== today) {
