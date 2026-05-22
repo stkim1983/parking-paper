@@ -202,6 +202,64 @@
         </div>
     </div>
 
+    <!-- 🎯 [모바일 연락처 기능 액션 모달] -->
+    <div id="contactModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center hidden opacity-0 transition-all duration-300">
+        <div class="bg-white w-full sm:max-w-md rounded-t-[2rem] sm:rounded-2xl p-6 shadow-2xl transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-300">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fas fa-address-book text-blue-600"></i>
+                    <span id="modalTargetName" class="text-blue-700 font-extrabold">-</span> 고객 연락처
+                </h3>
+                <button onclick="closeContactModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="text-center py-3 mb-5 bg-slate-50 rounded-xl border border-slate-100">
+                <span id="modalTargetPhoneText" class="text-xl sm:text-2xl font-black text-slate-700 tracking-wider">-</span>
+            </div>
+            
+            <div class="space-y-3">
+                <!-- 전화 걸기 -->
+                <button id="modalCallBtn" class="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl font-bold transition-all border border-blue-100 active:scale-[0.98]">
+                    <span class="flex items-center gap-3">
+                        <i class="fas fa-phone-alt text-lg"></i>
+                        고객에게 전화 걸기
+                    </span>
+                    <i class="fas fa-chevron-right text-xs opacity-50"></i>
+                </button>
+                
+                <!-- 문자 메시지 -->
+                <button id="modalSmsBtn" class="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl font-bold transition-all border border-slate-200 active:scale-[0.98]">
+                    <span class="flex items-center gap-3">
+                        <i class="fas fa-comment-alt text-lg"></i>
+                        문자 메시지 보내기
+                    </span>
+                    <i class="fas fa-chevron-right text-xs opacity-50"></i>
+                </button>
+                
+                <!-- 카톡 친구 추가 -->
+                <button id="modalKakaoBtn" class="w-full flex items-center justify-between p-4 bg-yellow-100 hover:bg-yellow-200 text-amber-950 rounded-xl font-bold transition-all border border-yellow-200 active:scale-[0.98]">
+                    <span class="flex items-center gap-3">
+                        <i class="fab fa-comment text-xl text-yellow-800"></i>
+                        번호 복사 후 카카오톡 열기
+                    </span>
+                    <i class="fas fa-chevron-right text-xs opacity-50"></i>
+                </button>
+            </div>
+            
+            <button onclick="closeContactModal()" class="w-full mt-4 p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-center transition-all active:scale-[0.98]">
+                닫기
+            </button>
+        </div>
+    </div>
+
+    <!-- 🎯 [커스텀 알림 토스트] (복사 알림용) -->
+    <div id="toastAlert" class="fixed top-5 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white px-5 py-4 rounded-xl shadow-xl z-50 flex items-center gap-3 font-semibold pointer-events-none opacity-0 transition-opacity duration-300 max-w-md w-[90%] text-center justify-center">
+        <span id="toastIcon"><i class="fas fa-info-circle text-blue-400"></i></span>
+        <span id="toastMessage" class="text-sm">알림 메시지</span>
+    </div>
+
     <script>
         // 🎯 사무실 PC ngrok 절대주소
         const API_BASE = "https://wreath-popper-dedicator.ngrok-free.dev/api"; 
@@ -217,6 +275,96 @@
             const month = String(now.getMonth() + 1).padStart(2, '0');
             const day = String(now.getDate()).padStart(2, '0');
             return `${year}-${month}-${day}`;
+        }
+
+        // 🎯 [커스텀 토스트 알림창]
+        function showToast(message, iconHtml = '<i class="fas fa-info-circle text-blue-400"></i>') {
+            const toast = document.getElementById('toastAlert');
+            document.getElementById('toastIcon').innerHTML = iconHtml;
+            document.getElementById('toastMessage').innerText = message;
+            
+            toast.classList.remove('opacity-0');
+            toast.classList.add('opacity-100');
+            
+            setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0');
+            }, 3000);
+        }
+
+        // 🎯 [모바일 액션 시트 모달 제어 함수]
+        function openContactModal(name, cleanPhone, formattedPhone, event) {
+            if (event) event.stopPropagation();
+            
+            document.getElementById('modalTargetName').innerText = name;
+            document.getElementById('modalTargetPhoneText').innerText = formattedPhone;
+            
+            // 전화 연결 이벤트 바인딩
+            document.getElementById('modalCallBtn').onclick = () => {
+                window.location.href = `tel:${cleanPhone}`;
+                closeContactModal();
+            };
+            
+            // 문자 연결 이벤트 바인딩
+            document.getElementById('modalSmsBtn').onclick = () => {
+                window.location.href = `sms:${cleanPhone}`;
+                closeContactModal();
+            };
+            
+            // 카톡 친구 추가 번호 복사 및 카톡 실행 바인딩
+            document.getElementById('modalKakaoBtn').onclick = () => {
+                copyNumberAndOpenKakao(cleanPhone);
+            };
+            
+            const modal = document.getElementById('contactModal');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.classList.add('opacity-100');
+                modal.querySelector('.bg-white').classList.remove('translate-y-full', 'sm:scale-95');
+                modal.querySelector('.bg-white').classList.add('translate-y-0', 'sm:scale-100');
+            }, 10);
+        }
+
+        function closeContactModal() {
+            const modal = document.getElementById('contactModal');
+            modal.querySelector('.bg-white').classList.remove('translate-y-0', 'sm:scale-100');
+            modal.querySelector('.bg-white').classList.add('translate-y-full', 'sm:scale-95');
+            modal.classList.remove('opacity-100');
+            modal.classList.add('opacity-0');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        // 🎯 [클립보드 번호 복사 및 카톡 자동 실행]
+        function copyNumberAndOpenKakao(phoneText) {
+            // Iframe 제약 조건 우회용 복사 함수 적용
+            const input = document.createElement('input');
+            input.setAttribute('value', phoneText);
+            document.body.appendChild(input);
+            input.select();
+            
+            let success = false;
+            try {
+                success = document.execCommand('copy');
+            } catch (err) {
+                console.error("복사 실행 도중 오류 발생:", err);
+            }
+            document.body.removeChild(input);
+            
+            if (success) {
+                closeContactModal();
+                showToast("번호 복사 성공! 카톡에서 [연락처로 친구 추가] 해주세요.", '<i class="fab fa-comment text-yellow-400 text-lg"></i>');
+                
+                // 1.5초 딜레이 후 카카오톡 실행 (유저 피드백 체감용)
+                setTimeout(() => {
+                    window.location.href = "kakaotalk://";
+                }, 1200);
+            } else {
+                showToast("복사에 실패했습니다. 수동 복사가 필요합니다.");
+            }
         }
 
         function initLastUpdateUI() {
@@ -529,13 +677,15 @@
                 let telNum = telMatch ? telMatch[1].replace(/[^0-9]/g, '') : '';
                 let cleanName = nameStr.split('(')[0];
 
+                // 🎯 [연락처 터치 이벤트 바인딩]: 기존 href="tel:" 대신 openContactModal 함수를 호출하도록 변경
                 let nameHtml = `
                     <div class="flex flex-col gap-0.5">
                         <span class="text-slate-800 font-bold text-xl md:text-base ${isOut ? 'line-through text-slate-500' : ''}">${cleanName}</span>
                         ${telMatch ? `
-                        <a href="tel:${telNum}" onclick="event.stopPropagation()" class="text-sm md:text-[11px] text-slate-500 font-semibold hover:text-blue-600 underline md:no-underline md:hover:underline transition-colors">
+                        <button onclick="openContactModal('${cleanName.trim()}', '${telNum}', '${telMatch[1]}', event)" 
+                                class="text-sm md:text-[11px] text-slate-500 font-semibold hover:text-blue-600 underline md:no-underline md:hover:underline transition-colors text-left focus:outline-none">
                             (${telMatch[1]})
-                        </a>` : ''}
+                        </button>` : ''}
                     </div>
                 `;
 
@@ -561,7 +711,6 @@
                     </div>
                 `;
 
-                // 출고 전용이므로 비고(메모)란은 텍스트 전용으로만 가독성 있게 표시합니다.
                 let remarkHtml = `<span class="text-sm md:text-xs text-slate-700 font-bold max-w-[200px] md:whitespace-normal" title="${remarkStr}">${remarkStr}</span>`;
 
                 tr.innerHTML = `
