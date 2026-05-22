@@ -356,12 +356,10 @@
             
             if (success) {
                 closeContactModal();
-                showToast("번호 복사 성공! 카톡에서 [연락처로 친구 추가] 해주세요.", '<i class="fab fa-comment text-yellow-400 text-lg"></i>');
-                
-                // 1.5초 딜레이 후 카카오톡 실행 (유저 피드백 체감용)
-                setTimeout(() => {
-                    window.location.href = "kakaotalk://";
-                }, 1200);
+                // 🎯 딜레이(setTimeout) 없이 즉시 브라우저의 "유저 이벤트 발생" 상태 그대로 실행시킵니다.
+                // 딜레이가 들어가면 모바일 기기가 차단하므로 동기 실행이 필수입니다.
+                window.location.href = "kakaotalk://";
+                showToast("번호가 복사되었습니다! 카톡에 붙여넣어 주세요.", '<i class="fab fa-comment text-yellow-400 text-lg"></i>');
             } else {
                 showToast("복사에 실패했습니다. 수동 복사가 필요합니다.");
             }
